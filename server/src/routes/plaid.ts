@@ -296,4 +296,135 @@ router.post('/unlink', authenticate, async (req: AuthRequest, res: Response) => 
   }
 });
 
+// Create simulated demo data for testing
+router.post('/demo-data', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 1) Delete old accounts/transactions
+    await Account.deleteMany({ userId: req.userId });
+    await Transaction.deleteMany({ userId: req.userId });
+
+    // 2) Insert 3 mock accounts
+    const checkingAcc = await Account.create({
+      userId: req.userId,
+      plaidAccountId: 'demo_checking_id',
+      name: 'Chase Checking',
+      officialName: 'Chase Premium Checking',
+      type: 'depository',
+      subtype: 'checking',
+      mask: '4912',
+      currentBalance: 5420.50,
+      availableBalance: 5310.20,
+      currency: 'USD',
+      lastSynced: new Date(),
+    });
+
+    const savingsAcc = await Account.create({
+      userId: req.userId,
+      plaidAccountId: 'demo_savings_id',
+      name: 'Chase Savings',
+      officialName: 'Chase High Yield Savings',
+      type: 'depository',
+      subtype: 'savings',
+      mask: '9812',
+      currentBalance: 45800.00,
+      availableBalance: 45800.00,
+      currency: 'USD',
+      lastSynced: new Date(),
+    });
+
+    const creditAcc = await Account.create({
+      userId: req.userId,
+      plaidAccountId: 'demo_credit_id',
+      name: 'Freedom Credit Card',
+      officialName: 'Chase Freedom Visa',
+      type: 'credit',
+      subtype: 'credit card',
+      mask: '2180',
+      currentBalance: 1250.75,
+      availableBalance: 8749.25,
+      currency: 'USD',
+      lastSynced: new Date(),
+    });
+
+    // 3) Create mock transactions over last 60 days
+    const mockTxns = [
+      { name: 'Apex Payroll', merchantName: 'Apex Corp', amount: -3200.00, category: ['Transfer', 'Payroll'], isRecurring: true },
+      { name: 'Whole Foods Market', merchantName: 'Whole Foods', amount: 145.20, category: ['Food and Drink', 'Groceries'], isRecurring: false },
+      { name: 'Uber Ride', merchantName: 'Uber', amount: 24.50, category: ['Travel', 'Taxi'], isRecurring: false },
+      { name: 'Starbucks Coffee', merchantName: 'Starbucks', amount: 6.80, category: ['Food and Drink', 'Coffee Shop'], isRecurring: false },
+      { name: 'Netflix Subscription', merchantName: 'Netflix', amount: 15.49, category: ['Shops', 'Digital Entertainment'], isRecurring: true },
+      { name: 'Chevron Gasoline', merchantName: 'Chevron', amount: 48.00, category: ['Travel', 'Gas Station'], isRecurring: false },
+      { name: 'Rent Payment', merchantName: 'Landlord', amount: 1200.00, category: ['Transfer', 'Rent'], isRecurring: true },
+      { name: 'Electricity Bill', merchantName: 'Power Grid', amount: 85.00, category: ['Bills and Utilities'], isRecurring: true },
+      { name: 'Amazon Order', merchantName: 'Amazon', amount: 189.99, category: ['Shops', 'E-Commerce'], isRecurring: false },
+      { name: 'Target Grocery', merchantName: 'Target', amount: 62.40, category: ['Food and Drink', 'Groceries'], isRecurring: false },
+      { name: 'Gym Membership', merchantName: 'Planet Fitness', amount: 22.00, category: ['Shops', 'Gyms'], isRecurring: true },
+      { name: 'Steam Games', merchantName: 'Steam', amount: 59.99, category: ['Shops', 'Digital Entertainment'], isRecurring: false },
+      { name: 'Restaurant Dinner', merchantName: 'Olive Garden', amount: 112.50, category: ['Food and Drink', 'Restaurants'], isRecurring: false },
+      { name: 'Apex Payroll (Mid-Month)', merchantName: 'Apex Corp', amount: -3200.00, category: ['Transfer', 'Payroll'], isRecurring: true },
+      { name: 'Uber Ride (Duplicate)', merchantName: 'Uber', amount: 24.50, category: ['Travel', 'Taxi'], isAnomaly: true },
+      { name: 'Uber Ride', merchantName: 'Uber', amount: 24.50, category: ['Travel', 'Taxi'] },
+      { name: 'Home Depot Electronics', merchantName: 'Home Depot', amount: 750.00, category: ['Shops', 'Home Improvement'], isAnomaly: true },
+    ];
+
+    const insertedTransactions = [];
+    const baseDate = new Date();
+    
+    for (let i = 0; i < 30; i++) {
+      const txTemplate = mockTxns[i % mockTxns.length];
+      const txnDate = new Date();
+      txnDate.setDate(baseDate.getDate() - i * 2);
+
+      let accountId = checkingAcc._id;
+      if (txTemplate.amount > 0 && Math.random() > 0.6) {
+        accountId = creditAcc._id;
+      }
+
+      insertedTransactions.push({
+        userId: req.userId,
+        accountId: accountId,
+        plaidTransactionId: `demo_tx_${i}_${Date.now()}`,
+        amount: txTemplate.amount,
+        date: txnDate,
+        name: txTemplate.name,
+        merchantName: txTemplate.merchantName,
+        category: txTemplate.category,
+        categoryId: '12000000',
+        pending: false,
+        isoCurrencyCode: 'USD',
+        paymentChannel: 'in store',
+        isAnomaly: !!txTemplate.isAnomaly,
+        isRecurring: !!txTemplate.isRecurring,
+        tags: [],
+      });
+    }
+
+    await Transaction.insertMany(insertedTransactions);
+
+    // 4) Complete onboarding for user
+    user.hasBankConnected = true;
+    user.onboardingComplete = true;
+    await user.save();
+
+    res.json({
+      message: 'Demo data loaded successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        hasBankConnected: true,
+        onboardingComplete: true
+      }
+    });
+  } catch (error) {
+    console.error('Demo data error:', error);
+    res.status(500).json({ error: 'Failed to populate demo data' });
+  }
+});
+
 export default router;

@@ -172,4 +172,46 @@ router.post('/detect-anomalies', authenticate, async (req: AuthRequest, res: Res
   }
 });
 
+// Create manual transaction (from OCR Scanner)
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { amount, date, name, merchantName, category, accountId } = req.body;
+
+    if (!amount || !date || !name) {
+      return res.status(400).json({ error: 'Amount, date, and name are required' });
+    }
+
+    let finalAccountId = accountId;
+    if (!finalAccountId) {
+      const firstAccount = await Account.findOne({ userId: req.userId });
+      if (!firstAccount) {
+        return res.status(400).json({ error: 'No bank account linked. Please connect a bank or load demo data first.' });
+      }
+      finalAccountId = firstAccount._id;
+    }
+
+    const transaction = await Transaction.create({
+      userId: req.userId,
+      accountId: finalAccountId,
+      plaidTransactionId: `manual_ocr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      amount: parseFloat(amount),
+      date: new Date(date),
+      name,
+      merchantName: merchantName || name,
+      category: Array.isArray(category) ? category : [category || 'Other'],
+      categoryId: '12000000',
+      pending: false,
+      isoCurrencyCode: 'USD',
+      isAnomaly: false,
+      isRecurring: false,
+      tags: [],
+    });
+
+    res.status(201).json({ transaction });
+  } catch (error) {
+    console.error('Create transaction error:', error);
+    res.status(500).json({ error: 'Failed to create transaction' });
+  }
+});
+
 export default router;

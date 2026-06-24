@@ -1,27 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Loader2, Fingerprint } from 'lucide-react';
+import { Lock, Loader2, Fingerprint, Delete } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authAPI } from '../utils/api';
-import { PinInput } from '../components/auth/PinInput';
 import type { AxiosResponse } from 'axios';
+import { motion } from 'framer-motion';
 
 // Toast notifications
 const toast = {
   success: (message: string) => console.log('Success:', message),
   error: (message: string) => console.error('Error:', message)
 };
-
-// Extend the window interface to include WebAuthn types
-declare global {
-  interface Window {
-    PublicKeyCredential: {
-      isUserVerifyingPlatformAuthenticatorAvailable: () => Promise<boolean>;
-      isConditionalMediationAvailable?: () => Promise<boolean>;
-      new (): any;
-    }
-  }
-}
 
 type VerifyPinResponse = {
   verified: boolean;
@@ -49,6 +38,9 @@ export default function UnlockPage() {
   const [isFirstTime, setIsFirstTime] = useState(false);
   const [autoWebAuthnAttempted, setAutoWebAuthnAttempted] = useState(false);
   
+  // Custom numeric keypad state
+  const [pinDigits, setPinDigits] = useState<string>('');
+
   const { user, setUnlocked, setUser, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
@@ -67,11 +59,6 @@ export default function UnlockPage() {
       const isFirstTimeUser = !user?.onboardingComplete;
       setIsFirstTime(isFirstTimeUser);
 
-      // Only auto-attempt WebAuthn if:
-      // 1. WebAuthn is available
-      // 2. User has WebAuthn set up
-      // 3. It's not the first time (onboarding not complete)
-      // 4. We haven't already attempted it
       if (isAvailable && user?.hasWebAuthn && !isFirstTimeUser && !autoWebAuthnAttempted) {
         setAutoWebAuthnAttempted(true);
         await handleWebAuthnUnlock();
@@ -96,11 +83,9 @@ export default function UnlockPage() {
     setError(null);
     
     try {
-      // Get authentication options from the server
       const authResponse = await authAPI.getWebAuthnAuthOptions(user.email);
       const authOptions = authResponse.data;
       
-      // Request the authenticator to create an assertion
       const credential = await navigator.credentials.get({
         publicKey: {
           challenge: Uint8Array.from(authOptions.challenge, (c: string) => c.charCodeAt(0)),
@@ -118,7 +103,6 @@ export default function UnlockPage() {
         throw new Error('Authentication was cancelled');
       }
       
-      // Prepare the response to send to the server
       const response = {
         id: credential.id,
         rawId: Array.from(new Uint8Array(credential.rawId)),
@@ -133,44 +117,37 @@ export default function UnlockPage() {
         },
       };
       
-      // Verify the assertion with the server
       const verifyResponse = await authAPI.verifyWebAuthnAuth({
         email: user.email,
         credential: response,
       });
       
-      // Update auth state
       setUnlocked(true);
       setUser(verifyResponse.data.user);
       
-      // Navigate based on onboarding status
       if (verifyResponse.data.user.onboardingComplete) {
         navigate('/dashboard');
       } else {
-        navigate('/onboarding/bank_connection');
+        navigate('/onboarding/bank-connection');
       }
       
     } catch (err: any) {
       console.error('WebAuthn unlock error:', err);
-      
-      // If user hasn't set up WebAuthn yet, show PIN input
       if (err.name === 'NotAllowedError' || 
           err.message?.includes('not registered') ||
           err.message?.includes('not found')) {
         setShowPinInput(true);
         setError('Please use your PIN to log in');
       } else if (err.name !== 'AbortError') {
-        // Don't show error if user cancelled the prompt
         setError('Authentication failed. Please try again or use your PIN.');
         setShowPinInput(true);
       } else {
-        // User cancelled, show PIN input
         setShowPinInput(true);
       }
     } finally {
       setLoading(false);
     }
-  }, [user, navigate, setUnlocked, setUser, setShowPinInput]);
+  }, [user, navigate, setUnlocked, setUser]);
 
   const handlePinSubmit = async (enteredPin: string) => {
     if (!user?.email) {
@@ -182,20 +159,17 @@ export default function UnlockPage() {
     setError(null);
     
     try {
-      // Verify PIN with backend
       const response = await authAPI.verifyPin({
         email: user.email,
         pin: enteredPin
       }) as AxiosResponse<VerifyPinResponse>;
       
-      // Update auth state
       setUnlocked(true);
       setUser(response.data.user);
       
       toast.success('Successfully authenticated');
       
-      // Navigate based on onboarding status
-      const { onboardingComplete, nextStep = 'bank_connection' } = response.data;
+      const { onboardingComplete, nextStep = 'bank-connection' } = response.data;
       
       if (onboardingComplete) {
         navigate('/dashboard');
@@ -207,6 +181,7 @@ export default function UnlockPage() {
       console.error('Unlock error:', err);
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
+      setPinDigits(''); // Clear digits on failure
       
       if (newAttempts >= 3) {
         setError('Too many attempts. Please try again later.');
@@ -218,20 +193,52 @@ export default function UnlockPage() {
     }
   };
 
+  // Keyboard entry handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!showPinInput || loading) return;
+      if (e.key >= '0' && e.key <= '9') {
+        if (pinDigits.length < 6) {
+          const newPin = pinDigits + e.key;
+          setPinDigits(newPin);
+          if (newPin.length === 6) {
+            handlePinSubmit(newPin);
+          }
+        }
+      } else if (e.key === 'Backspace') {
+        setPinDigits(prev => prev.slice(0, -1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showPinInput, pinDigits, loading]);
+
+  const handleKeyPress = (num: string) => {
+    if (loading) return;
+    setError(null);
+    if (pinDigits.length < 6) {
+      const newPin = pinDigits + num;
+      setPinDigits(newPin);
+      if (newPin.length === 6) {
+        handlePinSubmit(newPin);
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    setPinDigits(prev => prev.slice(0, -1));
+  };
+
   const handleFirstTimeSetup = useCallback(async () => {
     if (!isFirstTime || !user?.email) return;
     
     try {
       setIsSettingUp(true);
-      
-      // For demo purposes, we'll automatically set up WebAuthn if available
       if (webAuthnAvailable) {
         try {
-          // Get registration options from the server
           const regResponse = await authAPI.getWebAuthnRegOptions(user.email);
           const options = regResponse.data;
           
-          // Ask the authenticator to create a new credential
           const credential = await navigator.credentials.create({
             publicKey: {
               rp: { 
@@ -244,8 +251,8 @@ export default function UnlockPage() {
                 displayName: user.name || user.email,
               },
               pubKeyCredParams: [
-                { type: 'public-key', alg: -7 }, // ES256
-                { type: 'public-key', alg: -257 }, // RS256
+                { type: 'public-key', alg: -7 },
+                { type: 'public-key', alg: -257 },
               ],
               timeout: 60000,
               challenge: Uint8Array.from(options.challenge, (c: string) => c.charCodeAt(0)),
@@ -258,10 +265,9 @@ export default function UnlockPage() {
           }) as any;
           
           if (!credential) {
-            throw new Error('Registration was cancelled');
+            throw new Error('Aborted');
           }
           
-          // Prepare the response to send to the server
           const response = {
             id: credential.id,
             rawId: Array.from(new Uint8Array(credential.rawId)),
@@ -272,130 +278,168 @@ export default function UnlockPage() {
             },
           };
           
-          // Register the new credential with the server
           const verifyResponse = await authAPI.verifyWebAuthnReg({
             email: user.email,
             credential: response,
           });
           
-          // Update user state
           setUser(verifyResponse.data.user);
           setIsFirstTime(false);
+          toast.success('Biometrics configured');
           
-          toast.success('Biometric authentication set up successfully');
-          
-          // Navigate to the next step
           if (verifyResponse.data.user.onboardingComplete) {
             navigate('/dashboard');
           } else {
-            navigate('/onboarding/bank_connection');
+            navigate('/onboarding/bank-connection');
           }
-          
         } catch (err: any) {
-          console.error('WebAuthn setup error:', err);
-          
-          if (err.name !== 'AbortError') {
-            // Don't show error if user cancelled the prompt
-            toast.error('Failed to set up biometric authentication');
-            setError('Failed to set up biometric authentication. Please try again or use your PIN.');
-            setShowPinInput(true);
-          }
+          console.error(err);
+          setError('Failed to setup biometric lock. Use your PIN.');
+          setShowPinInput(true);
         } finally {
           setIsSettingUp(false);
         }
       }
     } catch (err) {
-      console.error('First time setup error:', err);
-      setError('Failed to complete setup. Please try again.');
+      console.error(err);
+      setError('Setup failed');
       setShowPinInput(true);
       setIsSettingUp(false);
     }
-  }, [isFirstTime, user, webAuthnAvailable, navigate, setUser, setIsFirstTime, setShowPinInput]);
+  }, [isFirstTime, user, webAuthnAvailable, navigate, setUser]);
 
-  // Handle first-time setup when component mounts
   useEffect(() => {
     if (isFirstTime && !isSettingUp && webAuthnAvailable) {
       handleFirstTimeSetup();
     }
   }, [isFirstTime, isSettingUp, webAuthnAvailable, handleFirstTimeSetup]);
 
-  // Check WebAuthn availability on mount
   useEffect(() => {
     checkWebAuthn();
   }, [checkWebAuthn]);
 
-  // If user is not authenticated at all, redirect to login
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
 
-  // Show loading state during setup
   if (isSettingUp) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 to-purple-600 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
         <div className="w-full max-w-sm text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl mb-6">
-            <Loader2 className="w-10 h-10 text-white animate-spin" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl mb-6">
+            <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-4">
-            Setting up your account
-          </h1>
-          <p className="text-white/80">Please wait while we set up your secure login...</p>
+          <h1 className="text-2xl font-bold text-white mb-2">Secure Setup</h1>
+          <p className="text-slate-400">Initializing encryption & authentication keys...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 to-purple-600 p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
+      {/* Background Aurora Effect */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="w-full max-w-sm relative z-10 flex flex-col items-center">
+        {/* Top Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl mb-6">
-            <Lock className="w-10 h-10 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl mb-4 shadow-lg shadow-indigo-500/25">
+            <Lock className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-1">
-            {isFirstTime ? 'Secure Your Account' : showPinInput ? 'Enter PIN' : 'Welcome Back'}
+          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">
+            {showPinInput ? 'Security Pin' : 'Welcome Back'}
           </h1>
-          <p className="text-white/80">
-            {isFirstTime 
-              ? 'Let\'s set up secure access to your account'
-              : showPinInput 
-                ? 'Enter your PIN to continue'
-                : 'Authenticate to continue'}
+          <p className="text-slate-400">
+            {showPinInput ? 'Enter your 6-digit PIN' : 'Authenticate with your device'}
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm">
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm w-full text-center">
             {error}
           </div>
         )}
 
+        {/* PIN Indicators & Custom Numpad */}
         {showPinInput ? (
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6">
-            <PinInput
-              length={6}
-              onComplete={handlePinSubmit}
-              disabled={loading}
-            />
+          <div className="w-full flex flex-col items-center">
+            {/* Dots */}
+            <div className="flex gap-4 mb-10">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
+                    idx < pinDigits.length
+                      ? 'bg-indigo-500 shadow-[0_0_8px_#6366f1]'
+                      : 'bg-slate-800'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Custom PhonePe-like Numpad grid */}
+            <div className="grid grid-cols-3 gap-6 w-full max-w-xs px-4">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
+                <button
+                  key={num}
+                  onClick={() => handleKeyPress(num)}
+                  disabled={loading}
+                  className="w-16 h-16 rounded-full bg-slate-900/60 border border-white/5 flex items-center justify-center text-xl font-bold text-white hover:bg-slate-800/80 active:scale-90 transition-all duration-150 mx-auto"
+                >
+                  {num}
+                </button>
+              ))}
+              {/* Backspace Key */}
+              <button
+                onClick={handleBackspace}
+                disabled={loading || pinDigits.length === 0}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-slate-400 hover:text-white active:scale-90 transition-all duration-150 mx-auto"
+              >
+                <Delete className="w-6 h-6" />
+              </button>
+              {/* 0 Key */}
+              <button
+                onClick={() => handleKeyPress('0')}
+                disabled={loading}
+                className="w-16 h-16 rounded-full bg-slate-900/60 border border-white/5 flex items-center justify-center text-xl font-bold text-white hover:bg-slate-800/80 active:scale-90 transition-all duration-150 mx-auto"
+              >
+                0
+              </button>
+              {/* Fingerprint key inside pad */}
+              {webAuthnAvailable && !isFirstTime ? (
+                <button
+                  onClick={() => setShowPinInput(false)}
+                  disabled={loading}
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-indigo-400 hover:text-indigo-300 active:scale-90 transition-all duration-150 mx-auto"
+                >
+                  <Fingerprint className="w-6 h-6" />
+                </button>
+              ) : (
+                <div className="w-16 h-16" />
+              )}
+            </div>
+            
             {webAuthnAvailable && !isFirstTime && (
               <button
                 onClick={() => setShowPinInput(false)}
-                className="mt-4 w-full flex items-center justify-center gap-2 text-sm text-white/80 hover:text-white transition-colors"
+                className="mt-8 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors tracking-wide uppercase"
               >
-                <Fingerprint className="w-4 h-4" />
-                Use biometrics instead
+                Or use fingerprint biometric
               </button>
             )}
           </div>
         ) : (
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6">
+          <div className="w-full bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
             <button
               onClick={handleWebAuthnUnlock}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-300 shadow-lg shadow-indigo-500/20 disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -405,16 +449,16 @@ export default function UnlockPage() {
               ) : (
                 <>
                   <Fingerprint className="w-5 h-5" />
-                  Authenticate with Biometrics
+                  Unlock with Biometrics
                 </>
               )}
             </button>
             
             <button
               onClick={() => setShowPinInput(true)}
-              className="mt-4 w-full text-sm text-white/70 hover:text-white transition-colors"
+              className="mt-6 text-sm text-slate-400 hover:text-slate-300 font-semibold transition-colors"
             >
-              Use PIN instead
+              Enter Secure PIN
             </button>
           </div>
         )}

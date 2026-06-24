@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage';
 import InsightsPage from './pages/InsightsPage';
 import ChatPage from './pages/ChatPage';
 import GoalsPage from './pages/GoalsPage';
+import ScanReceiptPage from './pages/ScanReceiptPage';
 
 // New onboarding pages we'll create next
 import SetPinPage from './pages/onboarding/SetPinPage';
@@ -88,6 +89,7 @@ function App() {
           <Route path="goals" element={<GoalsPage />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="scan-receipt" element={<ScanReceiptPage />} />
           <Route path="profile" element={<ProfilePage />} />
           
           {/* Redirect any other route to home */}

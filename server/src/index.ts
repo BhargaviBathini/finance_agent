@@ -7,7 +7,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables (reload trigger)
 dotenv.config();
 
 // Import routes

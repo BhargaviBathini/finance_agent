@@ -2,141 +2,143 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useEffect } from 'react';
+import { Sparkles, Shield, TrendingUp, Cpu } from 'lucide-react';
 
 export const WelcomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
 
-  // Redirect to home if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
+  const features = [
+    { icon: Cpu, title: 'AI-Powered Agent', desc: 'Predictive analytics, custom insights, and natural language copilot.' },
+    { icon: Shield, title: 'WebAuthn Secure', desc: 'Biometric passwordless unlock and bank-grade data encryption.' },
+    { icon: TrendingUp, title: 'Wealth Projection', desc: 'Interactive simulators and automated savings goal calculations.' },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex flex-col">
-      {/* Header */}
-      <header className="pt-16 pb-8 px-4 text-center">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="inline-block p-4 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl mb-6"
-        >
-          <div className="w-16 h-16 bg-indigo-500 dark:bg-indigo-600 rounded-xl flex items-center justify-center text-white">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2v8" />
-              <path d="m16 6-4-4-4 4" />
-              <path d="M18 16a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4v-1a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v1c0 1.3-.8 2.4-2 2.8" />
-              <path d="M6 10v2a6 6 0 0 0 12 0v-2" />
-            </svg>
+    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden flex flex-col justify-between">
+      {/* Background Aurora Effect */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px] animate-aurora-slow"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-aurora-fast"></div>
+        <div className="absolute top-1/2 left-2/3 w-80 h-80 bg-cyan-600/10 rounded-full blur-[100px] animate-aurora-slow"></div>
+      </div>
+
+      {/* Top Navbar */}
+      <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
-        </motion.div>
-        
-        <motion.h1 
-          className="text-4xl font-bold text-gray-900 dark:text-white mb-3"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">WIND</span>
+        </div>
+        <button 
+          onClick={() => navigate('/login')}
+          className="text-sm font-medium text-slate-300 hover:text-white transition-colors duration-200 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/5"
         >
-          Welcome to Wind
-        </motion.h1>
-        
-        <motion.p 
-          className="text-lg text-gray-600 dark:text-gray-300 max-w-md mx-auto"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          Your personal finance assistant that helps you track, manage, and grow your money.
-        </motion.p>
+          Sign In
+        </button>
       </header>
 
-      {/* Hero Illustration */}
-      <motion.div 
-        className="flex-1 flex items-center justify-center px-4 py-12"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.5 }}
-      >
-        <div className="relative w-full max-w-md">
-          <div className="absolute -inset-4 bg-indigo-100 dark:bg-indigo-900/20 rounded-3xl transform rotate-3"></div>
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl">
-            <div className="space-y-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                <div className="w-3 h-3 rounded-full bg-green-400"></div>
-              </div>
+      {/* Hero Section */}
+      <main className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-center max-w-7xl mx-auto px-6 py-12 gap-12 w-full">
+        {/* Left Intro Text */}
+        <div className="flex-1 text-center md:text-left space-y-6 max-w-xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold uppercase tracking-wider"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Next-Generation Personal Finance
+          </motion.div>
+          
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight text-white"
+          >
+            Your Money, <br />
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">AI-Engineered.</span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-slate-400 text-lg leading-relaxed max-w-md mx-auto md:mx-0"
+          >
+            Meet the smart financial agent that syncs with your bank, alerts you on duplicates, projects future trends, and helps you invest.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
+          >
+            <button
+              onClick={() => navigate('/register')}
+              className="px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold shadow-lg shadow-indigo-500/35 hover:shadow-indigo-500/50 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              Get Started Free
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Right Feature Panel */}
+        <div className="flex-1 w-full max-w-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="relative p-0.5 rounded-3xl bg-gradient-to-b from-indigo-500/30 via-purple-500/10 to-transparent"
+          >
+            <div className="bg-slate-900/80 backdrop-blur-2xl rounded-[22px] p-8 border border-white/5 space-y-6">
+              <h3 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                <Cpu className="text-indigo-400 w-5 h-5" /> Wind Intelligence
+              </h3>
               
               <div className="space-y-4">
-                <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-full"></div>
-                <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-5/6"></div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-3 pt-4">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                  <div 
-                    key={num}
-                    className="h-12 rounded-xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-xl font-medium text-gray-800 dark:text-gray-200"
-                  >
-                    {num === 0 ? '0' : num}
-                  </div>
-                ))}
-                <div className="h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400">
-                    <path d="M12 2v8" />
-                    <path d="m16 6-4-4-4 4" />
-                    <path d="M18 16a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4v-1a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v1c0 1.3-.8 2.4-2 2.8" />
-                    <path d="M6 10v2a6 6 0 0 0 12 0v-2" />
-                  </svg>
-                </div>
+                {features.map((feat, idx) => {
+                  const Icon = feat.icon;
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.4 + idx * 0.1 }}
+                      className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors duration-200"
+                    >
+                      <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-white text-sm">{feat.title}</h4>
+                        <p className="text-slate-400 text-xs mt-1 leading-normal">{feat.desc}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
+      </main>
 
-      {/* Bottom CTA */}
-      <motion.div 
-        className="p-6 max-w-md mx-auto w-full space-y-4"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-      >
-        <button
-          onClick={() => navigate('/register')}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2"
-        >
-          <span>Get Started</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-        </button>
-        
-        <p className="text-center text-gray-600 dark:text-gray-400">
-          Already have an account?{' '}
-          <button 
-            onClick={() => navigate('/login')}
-            className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-          >
-            Sign in
-          </button>
-        </p>
-      </motion.div>
+      {/* Footer */}
+      <footer className="relative z-10 w-full py-6 text-center text-slate-600 text-xs border-t border-white/5">
+        &copy; {new Date().getFullYear()} Wind Finance Inc. All rights reserved. Secure bank connection powered by Plaid.
+      </footer>
     </div>
   );
 };

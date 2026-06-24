@@ -118,6 +118,7 @@ export const plaidAPI = {
     }),
   syncTransactions: () => api.post('/plaid/sync-transactions'),
   unlink: () => api.post('/plaid/unlink'),
+  loadDemoData: () => api.post('/plaid/demo-data'),
 };
 
 // Accounts API
@@ -131,6 +132,7 @@ export const transactionsAPI = {
   getTransactions: (params?: any) => api.get('/transactions', { params }),
   getTransaction: (id: string) => api.get(`/transactions/${id}`),
   updateTransaction: (id: string, data: any) => api.patch(`/transactions/${id}`, data),
+  createTransaction: (data: any) => api.post('/transactions', data),
   getLatest: () => api.get('/transactions/latest/summary'),
   detectAnomalies: () => api.post('/transactions/detect-anomalies'),
 };

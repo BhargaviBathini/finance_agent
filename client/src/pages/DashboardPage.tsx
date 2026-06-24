@@ -137,12 +137,14 @@ export default function DashboardPage() {
           {
             label: 'Inflow',
             data: cashflowData.data.map((d: any) => d.inflow),
-            backgroundColor: 'rgba(34, 197, 94, 0.8)',
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderRadius: 6,
           },
           {
             label: 'Outflow',
             data: cashflowData.data.map((d: any) => d.outflow),
-            backgroundColor: 'rgba(239, 68, 68, 0.8)',
+            backgroundColor: 'rgba(239, 68, 68, 0.85)',
+            borderRadius: 6,
           },
         ],
       }
@@ -174,26 +176,41 @@ export default function DashboardPage() {
           {
             label: 'Net Worth',
             data: networthData.data.map((d: any) => d.netWorth),
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
             fill: true,
             tension: 0.4,
+            pointBackgroundColor: '#6366f1',
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#6366f1',
+            pointHoverBorderWidth: 2,
           },
           {
             label: 'Assets',
             data: networthData.data.map((d: any) => d.assets),
-            borderColor: 'rgb(34, 197, 94)',
-            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
             fill: true,
             tension: 0.4,
+            pointBackgroundColor: '#10b981',
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#10b981',
+            pointHoverBorderWidth: 2,
           },
           {
             label: 'Liabilities',
             data: networthData.data.map((d: any) => d.liabilities),
-            borderColor: 'rgb(239, 68, 68)',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
             fill: true,
             tension: 0.4,
+            pointBackgroundColor: '#ef4444',
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#ef4444',
+            pointHoverBorderWidth: 2,
           },
         ],
       }
@@ -331,30 +348,36 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-950 text-white relative pb-24">
+      {/* Background Aurora Effect */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px]"></div>
+      </div>
+
       {/* Header */}
-      <header className="bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-4 py-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
+      <header className="bg-slate-950/60 backdrop-blur-xl border-b border-white/5 px-6 py-5 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">Financial Dashboard</h1>
           <div className="flex items-center gap-3">
             <button
               onClick={() => loadData()}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
+              className="p-2.5 bg-slate-900/60 border border-white/5 hover:bg-slate-800 rounded-xl transition-all active:scale-95"
               title="Refresh data"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-5 h-5 text-indigo-400" />
             </button>
             <select
               value={range}
               onChange={(e) => setRange(e.target.value)}
-              className="input-field"
+              className="bg-slate-900 border border-white/10 text-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold"
             >
               <option value="1m">Last 1 month</option>
               <option value="3m">Last 3 months</option>
@@ -368,75 +391,75 @@ export default function DashboardPage() {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="px-4 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="max-w-7xl mx-auto px-6 pt-8 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
             {/* Net Worth */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Net Worth</h3>
-                <DollarSign className="w-5 h-5 text-gray-400" />
+            <div className="bg-slate-900/50 backdrop-blur-lg border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Net Worth</h3>
+                <DollarSign className="w-4 h-4 text-indigo-400" />
               </div>
-              <p className="text-2xl font-bold dark:text-white mb-1">
+              <p className="text-2xl font-bold text-white mb-1">
                 {formatCurrency(summary.netWorth)}
               </p>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-600">+2.5%</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">from last month</span>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-emerald-400 font-semibold">+2.5%</span>
+                <span className="text-xs text-slate-500">from last month</span>
               </div>
             </div>
 
             {/* Total Assets */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Assets</h3>
-                <DollarSign className="w-5 h-5 text-gray-400" />
+            <div className="bg-slate-900/50 backdrop-blur-lg border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Assets</h3>
+                <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl font-bold dark:text-white mb-1">
+              <p className="text-2xl font-bold text-white mb-1">
                 {formatCurrency(summary.totalAssets)}
               </p>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-600">+1.8%</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">from last month</span>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-emerald-400 font-semibold">+1.8%</span>
+                <span className="text-xs text-slate-500">from last month</span>
               </div>
             </div>
 
             {/* Total Liabilities */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Liabilities</h3>
-                <DollarSign className="w-5 h-5 text-gray-400" />
+            <div className="bg-slate-900/50 backdrop-blur-lg border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Liabilities</h3>
+                <DollarSign className="w-4 h-4 text-rose-400" />
               </div>
-              <p className="text-2xl font-bold dark:text-white mb-1">
+              <p className="text-2xl font-bold text-white mb-1">
                 {formatCurrency(summary.totalLiabilities)}
               </p>
-              <div className="flex items-center gap-1">
-                <TrendingDown className="w-4 h-4 text-red-600" />
-                <span className="text-sm text-red-600">-0.5%</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">from last month</span>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                <span className="text-xs text-rose-400 font-semibold">-0.5%</span>
+                <span className="text-xs text-slate-500">from last month</span>
               </div>
             </div>
 
             {/* Monthly Cash Flow */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Monthly Cash Flow</h3>
-                <DollarSign className="w-5 h-5 text-gray-400" />
+            <div className="bg-slate-900/50 backdrop-blur-lg border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Monthly Cash Flow</h3>
+                <DollarSign className="w-4 h-4 text-indigo-400" />
               </div>
-              <p className={`text-2xl font-bold mb-1 ${summary.monthlyCashFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              <p className={`text-2xl font-bold mb-1 ${summary.monthlyCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {formatCurrency(summary.monthlyCashFlow)}
               </p>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 mt-2">
                 {summary.monthlyCashFlow >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-green-600" />
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
-                  <TrendingDown className="w-4 h-4 text-red-600" />
+                  <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
                 )}
-                <span className={`text-sm ${summary.monthlyCashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-xs font-semibold ${summary.monthlyCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {summary.monthlyCashFlow >= 0 ? '+' : ''}{(summary.monthlyCashFlow / 1000).toFixed(1)}K
                 </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">this month</span>
+                <span className="text-xs text-slate-500">this month</span>
               </div>
             </div>
           </div>

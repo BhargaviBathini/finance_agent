@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, Fingerprint } from 'lucide-react';
+import { Lock, Mail, Fingerprint, Sparkles } from 'lucide-react';
 import { authAPI } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
 import { authenticateWebAuthn, registerWebAuthn, isWebAuthnAvailable, isPlatformAuthenticatorAvailable } from '../utils/webauthn';
+import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,22 +19,18 @@ export default function LoginPage() {
   const handleWebAuthnRegistration = async () => {
     try {
       setLoading(true);
-      // Register WebAuthn for the user
       const result = await registerWebAuthn();
       
-      // Update user state to indicate WebAuthn is now set up
       if (authenticatedUser) {
         const updatedUser = { ...authenticatedUser, hasWebAuthn: true };
         setUser(updatedUser);
         setAuth(updatedUser, useAuthStore.getState().token || '', useAuthStore.getState().refreshToken || '');
       }
       
-      // Navigate to bank connection
       handleProceedToBankConnection();
     } catch (err: any) {
       console.error('WebAuthn setup error:', err);
       setError(err.message || 'Failed to set up Windows Hello authentication');
-      // Still proceed to bank connection even if WebAuthn setup fails
       handleProceedToBankConnection();
     } finally {
       setLoading(false);
@@ -54,21 +51,15 @@ export default function LoginPage() {
       const response = await authAPI.login({ email, password });
       const { user, token, refreshToken } = response.data;
       
-      // Set auth state
       setAuth(user, token, refreshToken);
       setAuthenticatedUser(user);
       
-      // Check if WebAuthn is available and if user has it set up
       const webAuthnAvailable = isWebAuthnAvailable() && await isPlatformAuthenticatorAvailable();
       
       if (webAuthnAvailable && user.hasWebAuthn) {
         try {
-          // Attempt WebAuthn authentication
           const webAuthnResponse = await authenticateWebAuthn(email);
-          
-          // If successful, update user and proceed to bank connection
           setUser(webAuthnResponse.user);
-          // Navigate to bank connection since user is authenticated but may not have connected bank yet
           if (!user.hasBankConnected) {
             navigate('/onboarding/bank-connection');
           } else {
@@ -76,7 +67,6 @@ export default function LoginPage() {
           }
         } catch (webAuthnError) {
           console.error('WebAuthn authentication failed:', webAuthnError);
-          // Fall back to normal authentication flow
           if (!user.hasBankConnected) {
             navigate('/onboarding/bank-connection');
           } else {
@@ -84,10 +74,8 @@ export default function LoginPage() {
           }
         }
       } else if (webAuthnAvailable && !user.hasWebAuthn) {
-        // WebAuthn is available but not set up yet, prompt user to set it up
         setShowWebAuthnPrompt(true);
       } else {
-        // WebAuthn not available or not set up, proceed to bank connection
         if (!user.hasBankConnected) {
           navigate('/onboarding/bank-connection');
         } else {
@@ -101,22 +89,31 @@ export default function LoginPage() {
     }
   };
 
-  // If we're showing the WebAuthn prompt, render that instead
   if (showWebAuthnPrompt) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-900 via-dark-900 to-dark-800 px-4">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 relative overflow-hidden">
+        {/* Background Aurora Effect */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px]"></div>
+          <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-purple-600/10 rounded-full blur-[100px]"></div>
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md relative z-10"
+        >
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
-              <Fingerprint className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl mb-4 shadow-lg shadow-indigo-500/25">
+              <Fingerprint className="w-8 h-8 text-white animate-pulse" />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Enhance Security</h1>
-            <p className="text-gray-400">Set up Windows Hello for faster, more secure access</p>
+            <p className="text-slate-400">Set up Windows Hello for passwordless biometric unlock</p>
           </div>
 
-          <div className="card">
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
             {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-xl text-sm mb-4">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm mb-4">
                 {error}
               </div>
             )}
@@ -125,7 +122,7 @@ export default function LoginPage() {
               <button
                 onClick={handleWebAuthnRegistration}
                 disabled={loading}
-                className="btn-primary w-full flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -142,45 +139,55 @@ export default function LoginPage() {
 
               <button
                 onClick={handleProceedToBankConnection}
-                className="w-full py-3 px-4 border border-gray-600 text-gray-300 rounded-xl hover:bg-gray-800 transition-colors"
+                className="w-full py-3.5 px-6 bg-white/5 border border-white/10 text-slate-300 rounded-xl hover:bg-white/10 hover:text-white transition-all duration-300"
               >
-                Continue without Windows Hello
+                Skip for now
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-900 via-dark-900 to-dark-800 px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 relative overflow-hidden">
+      {/* Background Aurora Effect */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md relative z-10"
+      >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
-            <Lock className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl mb-4 shadow-lg shadow-indigo-500/25">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400">Sign in to your financial agent</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">Welcome Back</h1>
+          <p className="text-slate-400">Sign in to your dashboard</p>
         </div>
 
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-xl text-sm">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label className="block text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Email Address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input-field pl-11"
+                  className="w-full bg-slate-950/40 border border-white/10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 transition-all outline-none"
                   placeholder="your@email.com"
                   required
                 />
@@ -188,14 +195,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Password</label>
+              <label className="block text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pl-11"
+                  className="w-full bg-slate-950/40 border border-white/10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 transition-all outline-none"
                   placeholder="••••••••"
                   required
                 />
@@ -205,22 +212,29 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Signing in...
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-400">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary-500 hover:text-primary-400 font-medium">
+              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
                 Sign up
               </Link>
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

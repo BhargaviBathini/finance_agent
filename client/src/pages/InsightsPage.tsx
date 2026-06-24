@@ -656,97 +656,114 @@ export default function InsightsPage() {
 
       {/* Financial Simulator Modal */}
       {showSimulator && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold dark:text-white">Financial Simulator</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl max-w-md w-full p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <h3 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">Wealth Compounder</h3>
               <button
                 onClick={() => {
                   setShowSimulator(false);
                   resetSimulation();
                 }}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
+                className="text-slate-400 hover:text-white text-2xl font-semibold transition-colors"
               >
                 ×
               </button>
             </div>
             
             <div className="space-y-6">
+              {/* Slider 1: Monthly Investment */}
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-white">
-                  Monthly Investment
-                </label>
+                <div className="flex justify-between mb-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  <span>Monthly Investment</span>
+                  <span className="text-indigo-400 font-extrabold">{formatCurrency(simulationParams.monthlyInvestment)}</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="1000"
+                  max="100000"
+                  step="1000"
                   value={simulationParams.monthlyInvestment}
-                  onChange={(e) => setSimulationParams({
-                    ...simulationParams,
-                    monthlyInvestment: parseInt(e.target.value) || 0
-                  })}
-                  className="input-field w-full"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setSimulationParams(prev => {
+                      const next = { ...prev, monthlyInvestment: val };
+                      setSimulationResult(calculateProjection(next.monthlyInvestment, next.annualReturn, next.years));
+                      return next;
+                    });
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                 />
               </div>
               
+              {/* Slider 2: Annual Return */}
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-white">
-                  Annual Return (%)
-                </label>
+                <div className="flex justify-between mb-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  <span>Expected Annual Return</span>
+                  <span className="text-purple-400 font-extrabold">{simulationParams.annualReturn}%</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="1"
                   value={simulationParams.annualReturn}
-                  onChange={(e) => setSimulationParams({
-                    ...simulationParams,
-                    annualReturn: parseInt(e.target.value) || 0
-                  })}
-                  className="input-field w-full"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setSimulationParams(prev => {
+                      const next = { ...prev, annualReturn: val };
+                      setSimulationResult(calculateProjection(next.monthlyInvestment, next.annualReturn, next.years));
+                      return next;
+                    });
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
                 />
               </div>
               
+              {/* Slider 3: Period */}
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-white">
-                  Investment Period (Years)
-                </label>
+                <div className="flex justify-between mb-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  <span>Investment Period</span>
+                  <span className="text-cyan-400 font-extrabold">{simulationParams.years} Years</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="1"
+                  max="40"
+                  step="1"
                   value={simulationParams.years}
-                  onChange={(e) => setSimulationParams({
-                    ...simulationParams,
-                    years: parseInt(e.target.value) || 0
-                  })}
-                  className="input-field w-full"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setSimulationParams(prev => {
+                      const next = { ...prev, years: val };
+                      setSimulationResult(calculateProjection(next.monthlyInvestment, next.annualReturn, next.years));
+                      return next;
+                    });
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
               </div>
               
-              <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-4">
-                <h4 className="font-medium dark:text-white mb-2">Projection Results</h4>
-                {simulationResult !== null ? (
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-                      {formatCurrency(simulationResult)}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">
-                      After {simulationParams.years} years with {simulationParams.annualReturn}% annual return
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-center">
-                    Enter values and click "Calculate" to see projection
-                  </p>
-                )}
+              {/* Live result screen */}
+              <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-5 text-center shadow-inner">
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Estimated Balance</span>
+                <p className="text-3xl font-extrabold text-indigo-400 mt-1 shadow-indigo-500/20">
+                  {formatCurrency(simulationResult !== null ? simulationResult : calculateProjection(simulationParams.monthlyInvestment, simulationParams.annualReturn, simulationParams.years))}
+                </p>
+                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                  Based on compounding returns over {simulationParams.years} years. Actual investment returns may vary.
+                </p>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button
-                  onClick={runSimulation}
-                  className="btn-primary flex-1"
+                  onClick={() => {
+                    setShowSimulator(false);
+                    resetSimulation();
+                  }}
+                  className="w-full py-3 bg-slate-800 text-white font-semibold rounded-xl hover:bg-slate-700 active:scale-95 transition-all text-sm"
                 >
-                  Calculate
-                </button>
-                <button
-                  onClick={resetSimulation}
-                  className="btn-secondary flex-1"
-                >
-                  Reset
+                  Close Simulator
                 </button>
               </div>
             </div>

@@ -1,16 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, Trash2, Lock, Unlock, Loader2, TrendingUp, DollarSign, Home, PiggyBank, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Sparkles, Trash2, Lock, Unlock, Loader2, DollarSign, Home, PiggyBank, Mic, MicOff, Volume2, VolumeX, ChevronLeft } from 'lucide-react';
 import { chatAPI } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
-
-// Type declarations for Web Speech API
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
-}
-
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -19,12 +12,13 @@ interface Message {
 }
 
 export default function ChatPage() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
-  const [dataSharing, setDataSharing] = useState(false); // Default to OFF for privacy
+  const [dataSharing, setDataSharing] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -35,19 +29,6 @@ export default function ChatPage() {
   useEffect(() => {
     loadSession();
     loadSuggestions();
-  }, []);
-
-  // Reload session when page becomes visible (user navigates back)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('[Chat] Page visible, reloading session...');
-        loadSession();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   useEffect(() => {
@@ -63,9 +44,7 @@ export default function ChatPage() {
       const response = await chatAPI.getSession();
       setChatId(response.data.chatId);
       setMessages(response.data.messages || []);
-      // Use the EXACT value from backend, don't default to true
       setDataSharing(response.data.dataSharing === true);
-      console.log('[Chat] Loaded session with data sharing:', response.data.dataSharing);
     } catch (error) {
       console.error('Failed to load chat session:', error);
     }
@@ -94,8 +73,6 @@ export default function ChatPage() {
     setInput('');
     setLoading(true);
 
-    console.log('[Chat] Sending message with data sharing:', dataSharing);
-
     try {
       const response = await chatAPI.sendMessage({
         message: text,
@@ -103,132 +80,68 @@ export default function ChatPage() {
         dataSharing,
       });
 
-      if (!chatId) {
-        setChatId(response.data.chatId);
-      }
-
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.data.message.content,
-        timestamp: new Date(response.data.message.timestamp),
+        content: response.data.response,
+        timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-      
-      // Reload suggestions after each conversation
-      loadSuggestions();
     } catch (error) {
       console.error('Failed to send message:', error);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClearChat = async () => {
-    if (!confirm('Are you sure you want to clear the chat history?')) return;
-
-    try {
-      await chatAPI.clearChat(chatId || undefined);
-      setMessages([]);
-      setChatId(null);
-      loadSuggestions();
-    } catch (error) {
-      console.error('Failed to clear chat:', error);
-    }
-  };
-
   const handleToggleDataSharing = async () => {
-    const newValue = !dataSharing;
-    console.log('[Chat] Toggling data sharing from', dataSharing, 'to', newValue);
-    
     try {
-      // Update backend FIRST
+      const nextState = !dataSharing;
+      setDataSharing(nextState);
       await chatAPI.updateDataSharing({
-        enabled: newValue,
+        enabled: nextState,
         chatId: chatId || undefined,
       });
-      
-      // Only update frontend state after successful backend update
-      setDataSharing(newValue);
-      console.log('[Chat] Data sharing updated successfully to:', newValue);
-
-      // Add system message about data sharing change
-      const systemMessage: Message = {
-        role: 'assistant',
-        content: newValue
-          ? '✅ Data sharing enabled! I now have access to your financial data and can provide personalized advice.'
-          : '🔒 Data sharing disabled. I can still help with general financial advice, but responses won\'t be personalized to your specific situation.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, systemMessage]);
     } catch (error) {
       console.error('Failed to update data sharing:', error);
-      alert('Failed to update data sharing preference. Please try again.');
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    handleSendMessage(suggestion);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const handleClearChat = async () => {
+    if (window.confirm('Are you sure you want to clear chat history?')) {
+      try {
+        await chatAPI.clearChat(chatId || undefined);
+        setMessages([]);
+      } catch (error) {
+        console.error('Failed to clear chat:', error);
+      }
     }
   };
 
-  const startListening = async () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in your browser.');
       return;
     }
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.lang = 'en-US';
 
-    try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
+    rec.onstart = () => setIsListening(true);
+    rec.onresult = (e: any) => {
+      const txt = e.results[0][0].transcript;
+      setInput(txt);
+    };
+    rec.onerror = (e: any) => {
+      console.error(e);
+      setIsListening(false);
+    };
+    rec.onend = () => setIsListening(false);
 
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'en-US';
-
-      recognitionInstance.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognitionInstance.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
-      };
-
-      recognitionInstance.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-        if (event.error === 'not-allowed') {
-          alert('Microphone access denied. Please allow microphone permissions and try again.');
-        } else if (event.error === 'no-speech') {
-          alert('No speech detected. Please try speaking again.');
-        } else {
-          alert(`Speech recognition error: ${event.error}`);
-        }
-      };
-
-      recognitionInstance.onend = () => {
-        setIsListening(false);
-      };
-
-      setRecognition(recognitionInstance);
-      recognitionInstance.start();
-    } catch (error) {
-      console.error('Failed to start speech recognition:', error);
-      alert('Failed to start speech recognition. Please try again.');
-    }
+    setRecognition(rec);
+    rec.start();
   };
 
   const stopListening = () => {
@@ -240,31 +153,11 @@ export default function ChatPage() {
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
-      // Stop any ongoing speech
       window.speechSynthesis.cancel();
-
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-      };
-
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error);
-        setIsSpeaking(false);
-      };
-
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
-    } else {
-      console.warn('Speech synthesis not supported in this browser.');
     }
   };
 
@@ -275,200 +168,172 @@ export default function ChatPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-dark-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-4 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+  // Render message bubble content with inline calculations detection
+  const renderMessageContent = (content: string) => {
+    const containsCompound = content.toLowerCase().includes('compound') || content.toLowerCase().includes('invest') || content.toLowerCase().includes('rate');
+    const containsLoan = content.toLowerCase().includes('loan') || content.toLowerCase().includes('afford') || content.toLowerCase().includes('emi');
+
+    return (
+      <div className="space-y-4">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
+        
+        {/* Inline Compound Projection Card */}
+        {containsCompound && (
+          <div className="mt-3 bg-slate-950/60 border border-white/10 rounded-2xl p-4 space-y-3 font-sans text-xs">
+            <div className="font-bold text-indigo-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Compound Calculator
             </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="bg-slate-900 p-2 rounded-lg border border-white/5">
+                <span className="text-slate-500 block">5 Years Projection</span>
+                <span className="font-bold text-emerald-400 mt-1 block">$74,200</span>
+              </div>
+              <div className="bg-slate-900 p-2 rounded-lg border border-white/5">
+                <span className="text-slate-500 block">10 Years Projection</span>
+                <span className="font-bold text-indigo-400 mt-1 block">$185,400</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate('/insights')}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors text-[10px]"
+            >
+              Open Interactive Simulator
+            </button>
+          </div>
+        )}
+
+        {/* Inline Loan EMIs Calculator Card */}
+        {containsLoan && (
+          <div className="mt-3 bg-slate-950/60 border border-white/10 rounded-2xl p-4 space-y-3 font-sans text-xs">
+            <div className="font-bold text-purple-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> EMI Estimation
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="bg-slate-900 p-2 rounded-lg border border-white/5">
+                <span className="text-slate-500 block">Estimated EMI</span>
+                <span className="font-bold text-white mt-1 block">$420 / month</span>
+              </div>
+              <div className="bg-slate-900 p-2 rounded-lg border border-white/5">
+                <span className="text-slate-500 block">Tenure Term</span>
+                <span className="font-bold text-white mt-1 block">5 Years @ 7.5%</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-950 text-white relative pb-20">
+      {/* Background Aurora Effect */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
+      {/* Header */}
+      <header className="bg-slate-950/60 backdrop-blur-xl border-b border-white/5 px-6 py-4 sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="p-2 bg-slate-900/60 border border-white/5 rounded-xl hover:bg-slate-800 transition-all">
+              <ChevronLeft className="w-4 h-4 text-slate-400" />
+            </button>
             <div>
-              <h1 className="text-xl font-bold dark:text-white">AI Financial Assistant</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Powered by Gemini AI
-              </p>
+              <h1 className="text-sm font-bold tracking-wider uppercase text-slate-200">Wind AI Agent</h1>
+              <p className="text-[10px] text-slate-500">Gemini LLM Integration</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Data Sharing Toggle */}
+            {/* Toggle Personalization */}
             <button
               onClick={handleToggleDataSharing}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
                 dataSharing
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-slate-900/60 border-white/5 text-slate-400'
               }`}
-              title={dataSharing ? 'Data sharing enabled' : 'Data sharing disabled'}
             >
-              {dataSharing ? (
-                <>
-                  <Unlock className="w-4 h-4" />
-                  <span className="hidden sm:inline">Personalized</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span className="hidden sm:inline">Generic</span>
-                </>
-              )}
+              {dataSharing ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>{dataSharing ? 'Personalized' : 'Generic'}</span>
             </button>
-
-            {/* Clear Chat */}
             <button
               onClick={handleClearChat}
-              className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
-              title="Clear chat"
+              className="p-2.5 bg-slate-900/60 border border-white/5 hover:bg-slate-800 rounded-xl transition-all"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4 text-rose-400" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Welcome Message */}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 relative z-10">
+        <div className="max-w-4xl mx-auto space-y-5">
+          
           {messages.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-10 h-10 text-white" />
+            <div className="text-center py-12 max-w-sm mx-auto space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
+                <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-2xl font-bold dark:text-white mb-2">
-                Hello, {user?.name?.split(' ')[0]}! 👋
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                I'm your AI financial assistant. Ask me anything about your finances, investments, or financial goals.
+              <h2 className="text-xl font-bold">Hello, {user?.name?.split(' ')[0]}!</h2>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                I'm your financial copilot. Ask me questions about cash flows, savings goals, anomalies, or expected returns.
               </p>
-
-              {/* Data Sharing Status */}
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
-                dataSharing
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-              }`}>
-                {dataSharing ? (
-                  <>
-                    <Unlock className="w-4 h-4" />
-                    <span>Personalized mode active - I can access your financial data</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Generic mode - Enable data sharing for personalized advice</span>
-                  </>
-                )}
-              </div>
             </div>
           )}
 
-          {/* Messages */}
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white dark:bg-dark-800 text-gray-900 dark:text-white border border-gray-200 dark:border-dark-700'
-                }`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        AI Assistant
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {dataSharing ? (
-                        <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-                          Personalized
-                        </span>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
-                          Generic
-                        </span>
-                      )}
-                      {/* TTS Button for Assistant Messages */}
-                      <button
-                        onClick={() => isSpeaking ? stopSpeaking() : speakText(message.content)}
-                        className={`p-1 rounded transition-colors ${
-                          isSpeaking
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                            : 'bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 text-gray-500 dark:text-gray-400'
-                        }`}
-                        title={isSpeaking ? 'Stop speaking' : 'Speak this message'}
-                      >
-                        {isSpeaking ? (
-                          <VolumeX className="w-3 h-3" />
-                        ) : (
-                          <Volume2 className="w-3 h-3" />
-                        )}
-                      </button>
-                    </div>
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] rounded-2xl p-4 ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-tr-none shadow-lg shadow-indigo-500/10'
+                  : 'bg-slate-900/60 border border-white/5 text-slate-100 rounded-tl-none backdrop-blur-md'
+              }`}>
+                {msg.role === 'assistant' && (
+                  <div className="flex items-center justify-between mb-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                    <span>CO-PILOT RESPONSE</span>
+                    <button 
+                      onClick={() => isSpeaking ? stopSpeaking() : speakText(msg.content)}
+                      className="p-1 rounded bg-white/5 hover:bg-white/10"
+                    >
+                      {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 )}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {message.content}
-                </div>
-                <div className={`text-xs mt-2 ${
-                  message.role === 'user' ? 'text-primary-100' : 'text-gray-400 dark:text-gray-500'
-                }`}>
-                  {new Date(message.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
+                {msg.role === 'assistant' ? renderMessageContent(msg.content) : <p className="text-sm">{msg.content}</p>}
+                <span className="block text-[9px] text-slate-500 mt-2 text-right">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
             </div>
           ))}
 
-          {/* Loading Indicator */}
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-2xl px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-primary-600 dark:text-primary-400 animate-spin" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Thinking...
-                  </span>
-                </div>
+              <div className="bg-slate-900/60 border border-white/5 rounded-2xl rounded-tl-none p-4 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                <span className="text-xs text-slate-400">Synthesizing insights...</span>
               </div>
             </div>
           )}
-
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Suggestions */}
+      {/* Horizontal suggestions list */}
       {messages.length === 0 && suggestions.length > 0 && (
-        <div className="px-4 pb-4">
+        <div className="px-6 pb-4 relative z-10">
           <div className="max-w-4xl mx-auto">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
-              Suggested questions:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {suggestions.slice(0, 4).map((suggestion, index) => (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+              {suggestions.map((sug, idx) => (
                 <button
-                  key={index}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="text-left px-4 py-3 bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:shadow-md transition-all text-sm text-gray-700 dark:text-gray-300"
-                  disabled={loading}
+                  key={idx}
+                  onClick={() => handleSendMessage(sug)}
+                  className="flex-shrink-0 px-4 py-2.5 bg-slate-900/60 border border-white/5 hover:border-white/10 rounded-full text-xs text-slate-300 transition-all font-semibold active:scale-95 flex items-center gap-1.5"
                 >
-                  <div className="flex items-center gap-2">
-                    {index === 0 && <DollarSign className="w-4 h-4 text-primary-600" />}
-                    {index === 1 && <Home className="w-4 h-4 text-green-600" />}
-                    {index === 2 && <PiggyBank className="w-4 h-4 text-purple-600" />}
-                    {index === 3 && <TrendingUp className="w-4 h-4 text-blue-600" />}
-                    <span>{suggestion}</span>
-                  </div>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  {sug}
                 </button>
               ))}
             </div>
@@ -476,57 +341,42 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-4 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask me anything about your finances..."
-                className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white resize-none"
-                rows={1}
-                style={{ minHeight: '48px', maxHeight: '120px' }}
-                disabled={loading}
-              />
-            </div>
-
-            {/* STT Button */}
-            <button
-              onClick={isListening ? stopListening : startListening}
-              disabled={loading}
-              className={`p-3 rounded-xl transition-colors ${
-                isListening
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 text-gray-600 dark:text-gray-400'
-              }`}
-              title={isListening ? 'Stop listening' : 'Start voice input'}
-            >
-              {isListening ? (
-                <MicOff className="w-5 h-5" />
-              ) : (
-                <Mic className="w-5 h-5" />
-              )}
-            </button>
-
-            <button
-              onClick={() => handleSendMessage()}
-              disabled={!input.trim() || loading}
-              className="p-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-dark-600 text-white rounded-xl transition-colors disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-            AI can make mistakes. Verify important information.
-          </p>
+      {/* Input Console */}
+      <div className="bg-slate-950/60 backdrop-blur-xl border-t border-white/5 px-6 py-4 sticky bottom-0 z-20">
+        <div className="max-w-4xl mx-auto flex items-center gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            placeholder="Discuss wealth projection..."
+            className="flex-1 bg-slate-900 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none no-scrollbar"
+            rows={1}
+            style={{ maxHeight: '100px' }}
+            disabled={loading}
+          />
+          <button
+            onClick={isListening ? stopListening : startListening}
+            className={`p-3 border rounded-xl active:scale-95 transition-all ${
+              isListening
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 animate-pulse'
+                : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'
+            }`}
+          >
+            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={() => handleSendMessage()}
+            disabled={loading || !input.trim()}
+            className="p-3 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl active:scale-95 transition-all shadow-md shadow-indigo-500/20 disabled:opacity-50"
+          >
+            <Send className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
